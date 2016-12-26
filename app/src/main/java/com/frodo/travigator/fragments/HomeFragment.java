@@ -73,6 +73,7 @@ public class HomeFragment extends Fragment {
     private EditText ip;
     private TextView homeText;
     private Button navigate, prevChoice;
+    private LatLng currLoc;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -283,6 +284,34 @@ public class HomeFragment extends Fragment {
             } else {
                 routeNoList.add(getString(R.string.selectRoute));
                 City = CommonUtils.deCapitalize(cityList.get(pos));
+
+                JsonArrayRequest jsonArrayRequest = new JsonArrayRequest(Constants.SERVER_ROOT + "get_nearest_routes/" + City +
+                        "?lat=" + String.valueOf(currLoc.latitude) +
+                        "&lon=" + String.valueOf(currLoc.longitude) +
+                        "&dist=" + String.valueOf(Constants.ERROR_RADIUS*10),
+                        new Response.Listener<JSONArray>() {
+                    @Override
+                    public void onResponse(JSONArray response) {
+                        CommonUtils.log(response.toString());
+                        if (getActivity() == null)
+                            return;
+                        try {
+                            for (int i = 0; i<response.length(); i++) {
+                                String temp = "Abhi add krna h.";
+                                routeNoList.add(temp);
+                            }
+                        }catch (Exception ex) {
+                            CommonUtils.toast("Unable to get nearest routes");
+                        }
+                    }
+                }, new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        if ( getActivity() == null ) return;
+                        CommonUtils.toast("Unable to get nearest routes");
+                    }
+                });
+
                 JsonArrayRequest objRequest = new JsonArrayRequest(Constants.SERVER_ROOT + "get_routes/" + City,
                         new Response.Listener<JSONArray>() {
                     @Override
@@ -299,7 +328,9 @@ public class HomeFragment extends Fragment {
                                 routeSpinner.setEnabled(true);
                             }
                             if (easyMode) {
-                                trApp.getTTS().speak(getString(R.string.easyGuideRoute), TextToSpeech.QUEUE_FLUSH, null);
+                                if (PrefManager.isTTSEnabled()) {
+                                    trApp.getTTS().speak(getString(R.string.easyGuideRoute), TextToSpeech.QUEUE_FLUSH, null);
+                                }
                                 homeText.setText(R.string.easySelectRoute);
                                 citySpinner.setVisibility(View.GONE);
                                 routeSpinner.setVisibility(View.VISIBLE);
@@ -357,7 +388,9 @@ public class HomeFragment extends Fragment {
             if (pos != 0) {
                 stopList.add(getString(R.string.selectStop));
                 if (easyMode) {
-                    trApp.getTTS().speak(getString(R.string.easyGuideSrc), TextToSpeech.QUEUE_FLUSH, null);
+                    if ( PrefManager.isTTSEnabled() ) {
+                        trApp.getTTS().speak(getString(R.string.easyGuideSrc), TextToSpeech.QUEUE_FLUSH, null);
+                    }
                     homeText.setText(R.string.easySelectSrc);
                     routeSpinner.setVisibility(View.GONE);
                     srcStopSpinner.setVisibility(View.VISIBLE);
@@ -406,7 +439,9 @@ public class HomeFragment extends Fragment {
         public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
             srcPos = position-1;
             if (position > 0 && easyMode) {
-                trApp.getTTS().speak(getString(R.string.easyGuideDest),TextToSpeech.QUEUE_FLUSH,null);
+                if (PrefManager.isTTSEnabled()) {
+                    trApp.getTTS().speak(getString(R.string.easyGuideDest),TextToSpeech.QUEUE_FLUSH,null);
+                }
                 homeText.setText(R.string.easySelectDest);
                 srcStopSpinner.setVisibility(View.GONE);
                 stopSpinner.setVisibility(View.VISIBLE);
@@ -537,7 +572,9 @@ public class HomeFragment extends Fragment {
         CommonUtils.initLocation(getActivity());
 
         if (easyMode) {
-            trApp.getTTS().speak(getString(R.string.easyGuideCity),TextToSpeech.QUEUE_FLUSH, null);
+            if (PrefManager.isTTSEnabled()) {
+                trApp.getTTS().speak(getString(R.string.easyGuideCity),TextToSpeech.QUEUE_FLUSH, null);
+            }
             homeText.setText(R.string.easySelectCity);
             routeSpinner.setVisibility(View.GONE);
             srcStopSpinner.setVisibility(View.GONE);
@@ -584,6 +621,9 @@ public class HomeFragment extends Fragment {
                 CommonUtils.toast("Please select source and destination");
                 return;
             }
+            if (srcPos == deboardPos) {
+                CommonUtils.toast(getString(R.string.sameSrcDest));
+            }
             Intent navitaionActivity = new Intent(getActivity(), NavigateActivity.class);
             navitaionActivity.putExtra(NavigateActivity.STOPS, stops);
             navitaionActivity.putExtra(NavigateActivity.SRC_STOP, srcPos);
@@ -606,6 +646,7 @@ public class HomeFragment extends Fragment {
 
     @Subscribe
     public void onLocationChangedEvent(LocationChangedEvent event) {
+        currLoc = event.getLocation();
         if ( !autoSelectDone ) {
             autoSelect(event.getLocation());
         }

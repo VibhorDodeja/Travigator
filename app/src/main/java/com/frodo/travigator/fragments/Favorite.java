@@ -150,6 +150,9 @@ public class Favorite extends Fragment {
                         CommonUtils.toast("Please select source and destination");
                         return;
                     }
+                    if ( srcPos == destPos ) {
+                        CommonUtils.toast(getString(R.string.sameSrcDest));
+                    }
                     Intent navitaionActivity = new Intent(getActivity(), NavigateActivity.class);
                     navitaionActivity.putExtra(NavigateActivity.STOPS, stops);
                     navitaionActivity.putExtra(NavigateActivity.SRC_STOP, srcPos);
@@ -306,7 +309,9 @@ public class Favorite extends Fragment {
                 db.closeDB();
 
                 if ( easyMode ) {
-                    trApp.getTTS().speak(getString(R.string.easyGuideRoute), TextToSpeech.QUEUE_FLUSH, null);
+                    if ( PrefManager.isTTSEnabled()) {
+                        trApp.getTTS().speak(getString(R.string.easyGuideRoute), TextToSpeech.QUEUE_FLUSH, null);
+                    }
                     favText.setText(R.string.easySelectRoute);
                     citySpinner.setVisibility(View.GONE);
                     routeSpinner.setVisibility(View.VISIBLE);
@@ -321,6 +326,9 @@ public class Favorite extends Fragment {
             routeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
             routeSpinner.setAdapter(routeAdapter);
 
+            if (routeList.size() == 2) {
+                routeSpinner.setSelection(1);
+            }
         }
 
         @Override
@@ -372,7 +380,9 @@ public class Favorite extends Fragment {
                 stopList.add(0,getString(R.string.selectStop));
 
                 if (easyMode) {
-                    trApp.getTTS().speak(getString(R.string.easyGuideSrc), TextToSpeech.QUEUE_FLUSH, null);
+                    if (PrefManager.isTTSEnabled()) {
+                        trApp.getTTS().speak(getString(R.string.easyGuideSrc), TextToSpeech.QUEUE_FLUSH, null);
+                    }
                     favText.setText(R.string.easySelectSrc);
                     routeSpinner.setVisibility(View.GONE);
                     srcStopSpinner.setVisibility(View.VISIBLE);
@@ -420,7 +430,9 @@ public class Favorite extends Fragment {
             srcPos = position-1;
 
             if (easyMode && position > 0) {
-                trApp.getTTS().speak(getString(R.string.easyGuideDest),TextToSpeech.QUEUE_FLUSH, null);
+                if ( PrefManager.isTTSEnabled()) {
+                    trApp.getTTS().speak(getString(R.string.easyGuideDest),TextToSpeech.QUEUE_FLUSH, null);
+                }
                 favText.setText(R.string.easySelectDest);
                 srcStopSpinner.setVisibility(View.GONE);
                 stopSpinner.setVisibility(View.VISIBLE);

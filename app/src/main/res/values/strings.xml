@@ -72,6 +72,7 @@
     <string name="thisStop">This Stop is: </string>
     <string name="nextStop">Next Stop is: </string>
     <string name="lastStop">This is the last stop</string>
+    <string name="sameSrcDest">The source stop is same as the deboarding stop. Don\'t get on the bus!</string>
 
     <string name="parentKey">com.frodo.travigator.PARENT_KEY</string>
     <string name="appModePref">com.frodo.travigator.sharedPref.APP_MODE</string>

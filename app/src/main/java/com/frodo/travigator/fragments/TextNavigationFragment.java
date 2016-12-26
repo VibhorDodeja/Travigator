@@ -10,7 +10,9 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ListView;
+import android.widget.RelativeLayout;
 
 import com.frodo.travigator.R;
 import com.frodo.travigator.activities.NavigateActivity;
@@ -21,12 +23,17 @@ import com.frodo.travigator.events.MocLocationChangedEvent;
 import com.frodo.travigator.models.Stop;
 import com.frodo.travigator.utils.CommonUtils;
 import com.frodo.travigator.utils.LocationUtil;
+import com.frodo.travigator.utils.PrefManager;
 import com.google.android.gms.maps.model.LatLng;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 
 public class TextNavigationFragment extends Fragment {
 
@@ -40,26 +47,56 @@ public class TextNavigationFragment extends Fragment {
 
     @Nullable
     @Override
-    public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+    public View onCreateView(LayoutInflater inflater, @Nullable final ViewGroup container, @Nullable Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.text_navigation_fragment, null);
         stopsList = (ListView)rootView.findViewById(R.id.stop_list);
-        stopsList.setOnTouchListener(anywhereTapOnTouchListener);
+
+        stopsList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                String message = "";
+                if (current == -1) {
+                    message = "We are still trying to detect your location.";
+                }
+                else {
+                    if ( current == dstPos ) {
+                        message = "You just missed your destination.";
+                    }
+                    else if ( current == dstPos - 1 ) {
+                        message = "Next stop is your destination.";
+                    }
+                    else if ( current == dstPos - 2 ) {
+                        message = "Next stop is " + stops[current+1].getStop_name() + ".\nThe stop after that is your destination.";
+                    }
+                    else {
+                        message = "Next stop is " + stops[current+1].getStop_name() +", followed by ";
+                        message += stops[current+2].getStop_name() + ".\n";
+                        message += "You are " + String.valueOf(dstPos - current) + " stops away from your destination.";
+                    }
+                }
+
+                HashMap<String,String> myHashAlarm = new HashMap();
+                myHashAlarm.put(TextToSpeech.Engine.KEY_PARAM_STREAM,
+                        String.valueOf(AudioManager.STREAM_NOTIFICATION));
+                CommonUtils.log(message);
+                if (PrefManager.isTTSEnabled() ) {
+                    trApp.getTTS().speak(message,TextToSpeech.QUEUE_FLUSH, myHashAlarm);
+                }
+                else {
+                    CommonUtils.toast(message);
+                }
+            }
+        });
+
         status = new int[stops.length];
-        if (srcPos <= dstPos) {
-            for (int i = 0 ; i < stops.length ; i++) {
-                if (i < srcPos || i > dstPos)
-                    status[i] = StopListAdapter.STATUS_INACTIVE;
-                else
-                    status[i] = StopListAdapter.STATUS_REMANING;
-            }
-        } else  {
-            for (int i = stops.length-1 ; i >= 0 ; i--) {
-                if (i > srcPos || i < dstPos)
-                    status[i] = StopListAdapter.STATUS_INACTIVE;
-                else
-                    status[i] = StopListAdapter.STATUS_REMANING;
-            }
+
+        for (int i = 0 ; i < stops.length ; i++) {
+            if (i < srcPos || i > dstPos)
+                status[i] = StopListAdapter.STATUS_INACTIVE;
+            else
+                status[i] = StopListAdapter.STATUS_REMANING;
         }
+
         stopListAdapter = new StopListAdapter(getContext(), stops, status);
         stopsList.setAdapter(stopListAdapter);
         return rootView;
@@ -87,33 +124,17 @@ public class TextNavigationFragment extends Fragment {
         srcPos = getActivity().getIntent().getIntExtra(NavigateActivity.SRC_STOP, -1);
         dstPos = getActivity().getIntent().getIntExtra(NavigateActivity.DST_STOP, -1);
 
-        if (LocationUtil.checkLocationPermission() && LocationUtil.isGPSOn()) {
-            trApp.getLocationUtil().startLocationUpdates();
-        } else if (!LocationUtil.checkLocationPermission()){
-            trApp.getLocationUtil().askLocationPermission(getActivity());
-        } else {
-            trApp.getLocationUtil().checkLocationSettings(getActivity());
+        if ( srcPos > dstPos ) {
+            List<Stop> list = Arrays.asList(stops);
+            Collections.reverse(list);
+            stops = list.toArray(stops);
+            srcPos = stops.length - srcPos - 1;
+            dstPos = stops.length - dstPos - 1;
         }
-        CommonUtils.toast("Getting your location. Please wait...");
+
+        CommonUtils.initLocation(getActivity());
     }
 
-    private View.OnTouchListener anywhereTapOnTouchListener = new View.OnTouchListener() {
-        @Override
-        public boolean onTouch(View v, MotionEvent event) {
-            String message = "next stop is ";
-            int err = +1;
-            if(srcPos>dstPos){
-                message += " your destination ";
-            }
-            message += stops[current+err].getStop_name();
-            HashMap<String,String> myHashAlarm = new HashMap();
-            myHashAlarm.put(TextToSpeech.Engine.KEY_PARAM_STREAM,
-                    String.valueOf(AudioManager.STREAM_NOTIFICATION));
-            CommonUtils.log(message);
-            trApp.getTTS().speak(message,TextToSpeech.QUEUE_FLUSH, myHashAlarm);
-            return true;
-        }
-    };
     @Subscribe
     public void onLocationChangedEvent(LocationChangedEvent event) {
         LatLng latLng = event.getLocation();
@@ -139,27 +160,26 @@ public class TextNavigationFragment extends Fragment {
             }
             stopsList.smoothScrollToPosition(pos);
             if (infoGivenPos != pos) {
-                String message = "You arrived at " + stops[pos].getStop_name()+".";
-                String nextStopMessage = "";
-                if (pos != dstPos){
-                    if(srcPos<dstPos)
-                        nextStopMessage = "Your next stop is " + stops[pos+1].getStop_name()+".";
-                    else
-                        nextStopMessage = "Your next stop is " + stops[pos-1].getStop_name()+".";
+                String message = "You have arrived at " + stops[pos].getStop_name()+".\n";
+
+                if ( pos == dstPos ) {
+                    message += "This is your destination.";
                 }
-                if(srcPos == pos){
-                    message = message + " This is your source.";
+                else if (pos == dstPos - 1){
+                    message += "Next stop is your destination.";
                 }
-                if (dstPos == pos) {
-                    message = message+". This is your final stop.";
+                else if ( pos == dstPos - 2 ) {
+                    message = "Next stop is " + stops[pos+1].getStop_name() + ".\nThe stop after that is your destination.";
                 }
-//                if (PrefManager.isTTSEnabled()) {
-                    message = message.concat(nextStopMessage);
-                    String message_1 = message.concat(message);
-                    message_1 = message_1.concat(message);
-                    trApp.getTTS().speak(message_1, TextToSpeech.QUEUE_FLUSH, null);
-//                }
+                else {
+                    message = "Next stop is " + stops[pos+1].getStop_name() +", followed by ";
+                    message += stops[pos+2].getStop_name() + ".\n";
+                    message += "You are " + String.valueOf(dstPos - pos) + " stops away from your destination.";
+                }
+
+                CommonUtils.toast(message);
             }
+
             infoGivenPos = pos;
             isFirstTimeAdjusted = false;
             if (current == -1)
