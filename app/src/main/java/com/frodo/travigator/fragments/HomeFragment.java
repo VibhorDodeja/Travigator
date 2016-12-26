@@ -12,6 +12,7 @@ import android.location.Geocoder;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
 import android.support.v4.app.Fragment;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -27,9 +28,11 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.android.volley.Request;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonArrayRequest;
+import com.android.volley.toolbox.StringRequest;
 import com.frodo.travigator.R;
 import com.frodo.travigator.activities.NavigateActivity;
 import com.frodo.travigator.app.trApp;
@@ -40,6 +43,7 @@ import com.frodo.travigator.utils.CommonUtils;
 import com.frodo.travigator.utils.Constants;
 import com.frodo.travigator.utils.LocationUtil;
 import com.frodo.travigator.utils.PrefManager;
+import com.google.android.gms.appdatasearch.GetRecentContextCall;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.gson.Gson;
 
@@ -285,32 +289,35 @@ public class HomeFragment extends Fragment {
                 routeNoList.add(getString(R.string.selectRoute));
                 City = CommonUtils.deCapitalize(cityList.get(pos));
 
-                JsonArrayRequest jsonArrayRequest = new JsonArrayRequest(Constants.SERVER_ROOT + "get_nearest_routes/" + City +
+                String URL = Constants.SERVER_ROOT + "get_nearest_routes/" + City +
                         "?lat=" + String.valueOf(currLoc.latitude) +
                         "&lon=" + String.valueOf(currLoc.longitude) +
-                        "&dist=" + String.valueOf(Constants.ERROR_RADIUS*10),
-                        new Response.Listener<JSONArray>() {
-                    @Override
-                    public void onResponse(JSONArray response) {
-                        CommonUtils.log(response.toString());
-                        if (getActivity() == null)
-                            return;
-                        try {
-                            for (int i = 0; i<response.length(); i++) {
-                                String temp = "Abhi add krna h.";
-                                routeNoList.add(temp);
+                        "&dist=" + String.valueOf(Constants.ERROR_RADIUS);
+
+                StringRequest jsonArrayRequest = new StringRequest(Request.Method.GET, URL ,
+                        new Response.Listener<String>() {
+                            @Override
+                            public void onResponse(String response) {
+                                if (getActivity() == null)
+                                    return;
+                                try {
+                                    JSONArray jsonArray = new JSONArray(response);
+                                    for (int i = 0; i<jsonArray.length(); i++) {
+                                        String temp = jsonArray.getString(i);
+                                        routeNoList.add(temp);
+                                    }
+                                }catch (Exception ex) {
+                                    CommonUtils.toast("Unable to get nearest routes");
+                                }
                             }
-                        }catch (Exception ex) {
-                            CommonUtils.toast("Unable to get nearest routes");
-                        }
-                    }
-                }, new Response.ErrorListener() {
+                        }, new Response.ErrorListener() {
                     @Override
                     public void onErrorResponse(VolleyError error) {
                         if ( getActivity() == null ) return;
                         CommonUtils.toast("Unable to get nearest routes");
                     }
                 });
+                trApp.getRequestQueue().add(jsonArrayRequest);
 
                 JsonArrayRequest objRequest = new JsonArrayRequest(Constants.SERVER_ROOT + "get_routes/" + City,
                         new Response.Listener<JSONArray>() {
