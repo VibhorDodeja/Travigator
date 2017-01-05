@@ -292,7 +292,7 @@ public class HomeFragment extends Fragment {
                 String URL = Constants.SERVER_ROOT + "get_nearest_routes/" + City +
                         "?lat=" + String.valueOf(currLoc.latitude) +
                         "&lon=" + String.valueOf(currLoc.longitude) +
-                        "&dist=" + String.valueOf(Constants.ERROR_RADIUS);
+                        "&dist=" + String.valueOf(Constants.ERROR_RADIUS*2);
 
                 StringRequest jsonArrayRequest = new StringRequest(Request.Method.GET, URL ,
                         new Response.Listener<String>() {

@@ -185,7 +185,9 @@ public class TextNavigationFragment extends Fragment {
             if (current == -1)
                 current = pos;
             if (current != pos) {
-                status[current] = StopListAdapter.STATUS_VISITED;
+                  for ( int i = 0; i <= current; i++) {
+                        status[i] = StopListAdapter.STATUS_VISITED;
+                  }
             }
             current = pos;
             status[current] = StopListAdapter.STATUS_CURRENT;
